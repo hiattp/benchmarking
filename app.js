@@ -7,6 +7,7 @@ var express = require('express')
   , routes = require('./routes');
 
 var app = module.exports = express.createServer();
+var io = require('socket.io').listen(app);
 
 // Configuration
 
@@ -27,10 +28,35 @@ app.configure('production', function(){
   app.use(express.errorHandler());
 });
 
+// Helpers
+
+app.dynamicHelpers({
+  url: function(req,res){
+    return function(path){
+      var host = req.headers['host'];
+      var scheme = 'http';
+      return scheme + "://" + host + path;
+    }
+  }
+});
+
 // Routes
 
 app.get('/', routes.index);
 
-app.listen(3000, function(){
+// Sockets
+
+var numConnections = 0;
+io.sockets.on('connection', function(s){
+  numConnections++;
+  io.sockets.emit('update', {total:numConnections});
+  s.on('disconnect', function(){
+    numConnections--;
+    io.sockets.emit('update',{total:numConnections});
+  });
+});
+
+var port = process.env.PORT || 3000;
+app.listen(port, function(){
   console.log("Express server listening on port %d in %s mode", app.address().port, app.settings.env);
 });
